@@ -1,8 +1,3 @@
-Usage:
-------
-Install with ``mk install``
-Run with ``gopher [address]``
-
 gopher
 =======
 A mostly functional gopher browser for plan9.
@@ -13,3 +8,9 @@ Text and submenu items are displayed within the browser, whereas images and docu
 Other item types (bin, dos, uuencoded files, etc.) are not implemented yet.
 
 This has not been thoroughly tested so many bugs are just waiting to be found.
+
+Usage:
+------
+Install with ``mk install``  
+Run with ``gopher [address]``
+
