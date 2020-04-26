@@ -109,7 +109,7 @@ rendermenu(Link *l, Biobuf *bp)
 		sysfatal("malloc: %r");
 	m->link = l;
 	m->text = nil;
-	plrtstr(&m->text, 1000000, 0, 0, font, " ", 0, 0);
+	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
 	for(;;){
 		n = nil;
 		s = Brdstr(bp, '\n', 0);
@@ -121,10 +121,10 @@ rendermenu(Link *l, Biobuf *bp)
 		case Tinfo:
 			break;
 		case Thtml:
-			n = mklink(f[1]+4, nil, Thtml); /* +4 skip URL: */
+			n = mklink(strdup(f[1]+4), nil, Thtml); /* +4 skip URL: */
 			break;
 		default:
-			n = mklink(netmkaddr(f[2], "tcp", f[3]), f[1], type);
+			n = mklink(netmkaddr(f[2], "tcp", f[3]), strdup(f[1]), type);
 			break;
 		}
 		t = strdup(f[0]);
@@ -150,7 +150,7 @@ rendertext(Link *l, Biobuf *bp)
 		sysfatal("malloc: %r");
 	m->link = l;
 	m->text = nil;
-	plrtstr(&m->text, 1000000, 0, 0, font, " ", 0, 0);
+	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
 	for(;;){
 		s = Brdstr(bp, '\n', 0);
 		if(s==nil || s[0]=='.')
@@ -160,10 +160,11 @@ rendertext(Link *l, Biobuf *bp)
 		if(s[n-2]=='\r')
 			s[n-2] = 0;
 		if(s[0]=='\t'){
-			plrtstr(&m->text, 1000000, 8, 0, font, "    ", 0, 0);
-			plrtstr(&m->text, 4, 0, 0, font, s+1, 0, 0);
+			plrtstr(&m->text, 1000000, 8, 0, font, strdup("    "), 0, 0);
+			plrtstr(&m->text, 4, 0, 0, font, strdup(s+1), 0, 0);
 		}else
-			plrtstr(&m->text, 1000000, 8, 0, font, s, 0, 0);
+			plrtstr(&m->text, 1000000, 8, 0, font, strdup(s), 0, 0);
+		free(s);
 	}
 	return m;
 }
@@ -208,6 +209,41 @@ show(Gmenu *m)
 	pldraw(textp, screen);
 }
 
+void freetext(Rtext *t){
+	Rtext *tt;
+	Link *l;
+
+	tt = t;
+	for(; t!=0; t = t->next){
+		t->b=0;
+		free(t->text);
+		t->text = 0;
+		if(l = t->user){
+			t->user = 0;
+			free(l->addr);
+			free(l->sel);
+			free(l);
+		}
+	}
+	plrtfree(tt);
+}
+
+void
+freehist(Hist *h)
+{
+	Hist *n;
+	Gmenu *m;
+
+	for(n = h->n; h; h = n){
+		m = h->m;
+		freetext(m->text);
+		free(m->link->addr);
+		free(m->link->sel);
+		free(m->link);
+		free(h);
+	}	
+}
+
 void
 visit(Link *l)
 {
@@ -219,6 +255,8 @@ visit(Link *l)
 	h = malloc(sizeof *h);
 	if(h == nil)
 		sysfatal("malloc: %r");
+	if(hist != nil && hist->n != nil)
+		freehist(hist->n);
 	h->p = hist;
 	h->n = nil;
 	h->m = m;
@@ -435,6 +473,8 @@ void scrolltext(int dy, int whence)
 	if(s.pos.y < 0)
 		s.pos.y = 0;
 	plsetscroll(textp, s);
+	/* BUG: there is a redraw issue when scrolling
+	   This fixes the issue albeit not properly */
 	pldraw(textp, screen);
 }
 	
@@ -497,6 +537,8 @@ main(int argc, char *argv[])
 				break;
 			}
 			plmouse(root, mouse);
+			/* BUG: there is a redraw issue when scrolling
+			   This fixes the issue albeit not properly */
 			pldraw(textp, screen);
 			break;
 		}
