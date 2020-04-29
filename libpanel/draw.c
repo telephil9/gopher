@@ -114,6 +114,40 @@ Rectangle pl_outline(Image *b, Rectangle r, int style){
 Rectangle pl_box(Image *b, Rectangle r, int style){
 	return pl_boxoutline(b, r, style, 1);
 }
+Rectangle pl_boxoutlinef(Image *b, Rectangle r, int flags, int style, int fill){
+	switch(style){
+	case UP:
+		draw(b, r, pl_light, 0, ZP);
+		if(!(flags&NOBORDER))
+			border(b, r, 1, pl_black, ZP);
+		break;
+	case DOWN:
+	case DOWN1:
+	case DOWN2:
+	case DOWN3:
+		if(!(flags&NOBORDER))
+			pl_relief(b, pl_black, pl_white, r, BWID);
+		r=insetrect(r, BWID);
+		if(fill) draw(b, r, pl_dark, 0, ZP);
+		else if(!(flags&NOBORDER)) border(b, r, SPACE, pl_black, ZP);
+		break;
+	case PASSIVE:
+		if(fill) draw(b, r, pl_light, 0, ZP);
+		r=insetrect(r, PWID);
+		if(!fill) border(b, r, SPACE, pl_white, ZP);
+		break;
+	case FRAME:
+		border(b, r, 1, pl_black, ZP);
+		break;
+	}
+	return insetrect(r, SPACE);
+}
+Rectangle pl_outlinef(Image *b, Rectangle r, int flags, int style){
+	return pl_boxoutlinef(b, r, flags, style, 0);
+}
+Rectangle pl_boxf(Image *b, Rectangle r, int flags, int style){
+	return pl_boxoutlinef(b, r, flags, style, 1);
+}
 Point pl_boxsize(Point interior, int state){
 	switch(state){
 	case UP:

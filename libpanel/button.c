@@ -25,7 +25,7 @@ void pl_drawbutton(Panel *p){
 	Rectangle r;
 	Button *bp;
 	bp=p->data;
-	r=pl_box(p->b, p->r, p->state);
+	r=pl_boxf(p->b, p->r, p->flags, p->state);
 	switch(bp->btype){
 	case CHECK:
 		r=pl_check(p->b, r, bp->check);

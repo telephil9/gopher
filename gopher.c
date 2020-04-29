@@ -151,12 +151,14 @@ rendertext(Link *l, Biobuf *bp)
 	n = 0;
 	for(;;){
 		c = Bgetc(bp);
-		if(c<0 || c=='.')
+		if(c<0)
 			break;
 		else if(c=='\r' || c=='\n'){
 			if(c=='\r' && Bgetc(bp)!='\n')
 				Bungetc(bp);
 			buf[n] = 0;
+			if(n==1 && buf[0]=='.')
+				break;
 			plrtstr(&m->text, 1000000, 8, 0, font, strdup(buf), 0, 0);
 			n = 0;
 		}else if(c=='\t'){
@@ -548,8 +550,8 @@ mkpanels(void)
 	p = plgroup(root, PACKN|FILLX);
 	statusp = pllabel(p, PACKN|FILLX, "gopher!");
 	plplacelabel(statusp, PLACEW);
-	plbutton(p, PACKW|BITMAP, backi, backhit);
-	plbutton(p, PACKW|BITMAP, fwdi, nexthit);
+	plbutton(p, PACKW|BITMAP|NOBORDER, backi, backhit);
+	plbutton(p, PACKW|BITMAP|NOBORDER, fwdi, nexthit);
 	pllabel(p, PACKW, "Go:");
 	entryp = plentry(p, PACKN|FILLX, 0, "", entryhit);
 	p = plgroup(root, PACKN|FILLX);

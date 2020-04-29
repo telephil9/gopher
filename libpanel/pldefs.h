@@ -53,6 +53,7 @@ Panel *pl_ptinpanel(Point, Panel *);	/* highest-priority subpanel containing poi
  */
 int pl_drawinit(int);
 Rectangle pl_box(Image *, Rectangle, int);
+Rectangle pl_boxf(Image *b, Rectangle r, int flags, int style);
 Rectangle pl_outline(Image *, Rectangle, int);
 Point pl_boxsize(Point, int);
 void pl_interior(int, Point *, Point *);
