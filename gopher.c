@@ -10,6 +10,7 @@
 #include "icons.h"
 
 void texthit(Panel *p, int b, Rtext *t);
+void message(char *s, ...);
 
 Image *backi;
 Image *fwdi;
@@ -19,22 +20,10 @@ Panel *fwdp;
 Panel *urlp;
 Panel *textp;
 Panel *statusp;
+Panel *urlp;
 char *url;
 Mouse *mouse;
 Hist *hist = nil;
-
-Gmenu*
-mkmenu(Link *l)
-{
-	Gmenu *m;
-
-	m = malloc(sizeof *m);
-	if(m==nil)
-		sysfatal("malloc: %r");
-	m->link = l;
-	m->text = nil;
-	return m;
-}
 
 Link*
 mklink(char *addr, char *sel, int type)
@@ -48,6 +37,12 @@ mklink(char *addr, char *sel, int type)
 	l->sel  = sel!=nil ? strdup(sel) : nil;
 	l->type = type;
 	return l;
+}
+
+Link*
+clonelink(Link *l)
+{
+	return mklink(l->addr, l->sel, l->type);
 }
 
 int
@@ -83,15 +78,16 @@ seltype(char c)
 	return t;
 }
 
+static char *Typestr[] = {
+	"FILE", "DIR", "NS", "ERR", "HEX",
+	"DOS", "UU", "?", "TELNET", "BIN",
+	"MIRROR", "GIF", "IMG", "T3270", "DOC",
+	"HTML", "", "SND", "EOF",
+};
+
 char*
 seltypestr(int type)
 {
-	static char *Typestr[] = {
-		"FILE", "DIR", "NS", "ERR", "HEX",
-		"DOS", "UU", "?", "TELNET", "BIN",
-		"MIRROR", "GIF", "IMG", "T3270", "DOC",
-		"HTML", "", "SND", "EOF",
-	};
 	return smprint("%6s", Typestr[type]);
 };
 
@@ -107,7 +103,7 @@ rendermenu(Link *l, Biobuf *bp)
 	m = malloc(sizeof *m);
 	if(m==nil)
 		sysfatal("malloc: %r");
-	m->link = l;
+	m->link = clonelink(l);
 	m->text = nil;
 	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
 	for(;;){
@@ -148,7 +144,7 @@ rendertext(Link *l, Biobuf *bp)
 	m = malloc(sizeof *m);
 	if(m==nil)
 		sysfatal("malloc: %r");
-	m->link = l;
+	m->link = clonelink(l);
 	m->text = nil;
 	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
 	for(;;){
@@ -177,8 +173,10 @@ render(Link *l)
 	Gmenu *m;
 
 	fd = dial(l->addr, 0, 0, 0);
-	if(fd < 0)
-		sysfatal("dial: %r");
+	if(fd < 0){
+		message("unable to connect to %s: %r", l->addr);
+		return nil;
+	}
 	fprint(fd, "%s\r\n", l->sel);
 	bp = Bfdopen(fd, OREAD);
 	if(bp==nil){
@@ -202,14 +200,59 @@ render(Link *l)
 	return m;
 }
 
+void 
+message(char *s, ...)
+{
+	static char buf[1024];
+	char *out;
+	va_list args;
+
+	va_start(args, s);
+	out = buf + vsnprint(buf, sizeof(buf), s, args);
+	va_end(args);
+	*out='\0';
+	plinitlabel(statusp, PACKN|FILLX, buf);
+	pldraw(statusp, screen);
+	flushimage(display, 1);
+}
+
+char*
+linktourl(Link *l)
+{
+	char *f[3], *a, *s;
+	int n;
+
+	a = strdup(l->addr);
+	n = getfields(a, f, 3, 0, "!");
+	if(n != 3)
+		s = smprint("Url: gopher://%s%s", l->addr, l->sel);
+	else if(atoi(f[2])!=70)
+		s = smprint("Url: gopher://%s:%s%s", f[1], f[2], l->sel);
+	else
+		s = smprint("Url: gopher://%s%s", f[1], l->sel);
+	free(a);	
+	return s;	
+}
+
+void
+seturl(Link *l)
+{
+	free(url);
+	url = linktourl(l);
+}
+
 void
 show(Gmenu *m)
 {
 	plinittextview(textp, PACKE|EXPAND, ZP, m->text, texthit);
 	pldraw(textp, screen);
+	plinitlabel(urlp, PACKN|FILLX, url);
+	pldraw(urlp, screen);
+	message("gopher!");
 }
 
-void freetext(Rtext *t){
+void 
+freetext(Rtext *t){
 	Rtext *tt;
 	Link *l;
 
@@ -221,7 +264,8 @@ void freetext(Rtext *t){
 		if(l = t->user){
 			t->user = 0;
 			free(l->addr);
-			free(l->sel);
+			if(l->sel!=nil && l->sel[0]!=0)
+				free(l->sel);
 			free(l);
 		}
 	}
@@ -237,9 +281,11 @@ freehist(Hist *h)
 	for(n = h->n; h; h = n){
 		m = h->m;
 		freetext(m->text);
-		free(m->link->addr);
-		free(m->link->sel);
-		free(m->link);
+		if(m->link!=nil){
+			free(m->link->addr);
+			free(m->link->sel);
+			free(m->link);
+		}
 		free(h);
 	}	
 }
@@ -250,13 +296,19 @@ visit(Link *l)
 	Gmenu *m;
 	Hist *h;
 
+	seturl(l);
+	message("loading %s...", url);
 	m = render(l);
+	if(m==nil)
+		return;
 	show(m);
 	h = malloc(sizeof *h);
 	if(h == nil)
 		sysfatal("malloc: %r");
+/* FIXME
 	if(hist != nil && hist->n != nil)
 		freehist(hist->n);
+*/
 	h->p = hist;
 	h->n = nil;
 	h->m = m;
@@ -328,6 +380,57 @@ page(Link *l)
 	close(fd);
 }
 
+void 
+save(Link *l, char *name){
+	char buf[1024];
+	int ifd, ofd;
+
+	ifd = dial(l->addr, 0, 0, 0);
+	if(ifd < 0){
+		message("save: %s: %r", name);
+		return;
+	}
+	fprint(ifd, "%s\r\n", l->sel);
+	ofd=create(name, OWRITE, 0666);
+	if(ofd < 0){
+		message("save: %s: %r", name);
+		return;
+	}
+	switch(rfork(RFNOTEG|RFNAMEG|RFFDG|RFMEM|RFPROC|RFNOWAIT)){
+	case -1:
+		message("Can't fork: %r");
+		break;
+	case 0:
+		dup(ifd, 0);
+		close(ifd);
+		dup(ofd, 1);
+		close(ofd);
+
+		snprint(buf, sizeof(buf),
+			"{tput -p || cat} |[2] {aux/statusmsg -k %q >/dev/null || cat >/dev/null}", name);
+		execl("/bin/rc", "rc", "-c", buf, nil);
+		exits("exec");
+	}
+	close(ifd);
+	close(ofd);
+}
+
+char*
+linktofile(Link *l){
+	char *n, *s;
+
+	if(l==nil)
+		return nil;
+	n = l->sel;
+	if(n==nil || n[0]==0)
+		n = "/";
+	if(s = strrchr(n, '/'))
+		n = s+1;
+	if(n[0]==0)
+		n = "file";
+	return n;
+}
+
 void
 texthit(Panel *p, int b, Rtext *t)
 {
@@ -360,6 +463,18 @@ texthit(Panel *p, int b, Rtext *t)
 			free(s);
 		}
 		break;
+	case Tdos:
+	case Tbinary:
+	case Tbinhex:
+	case Tuuencoded:
+		snprint(buf, sizeof buf, "%s", linktofile(l));
+		if(eenter("Save as:", buf, sizeof buf, mouse)>0){
+			save(l, buf);
+		}
+		break;
+	default:
+		message("unhandled item type '%s'", Typestr[l->type]);
+		break;
 	}		
 }
 
@@ -373,6 +488,7 @@ backhit(Panel *p, int b)
 		return;
 	hist->p->n = hist;
 	hist = hist->p;
+	seturl(hist->m->link);
 	show(hist->m);
 }
 
@@ -385,6 +501,7 @@ nexthit(Panel *p, int b)
 	if(hist==nil || hist->n==nil)
 		return;
 	hist = hist->n;
+	seturl(hist->m->link);
 	show(hist->m);
 }
 
@@ -405,18 +522,21 @@ mkpanels(void)
 	Panel *p, *ybar, *xbar;
 
 	root = plgroup(0, EXPAND);
-	p = plframe(root, PACKN|FILLX);
+	p = plgroup(root, PACKN|FILLX);
+	statusp = pllabel(p, PACKN|FILLX, "gopher!");
+	plplacelabel(statusp, PLACEW);
 	plbutton(p, PACKW|BITMAP, backi, backhit);
 	plbutton(p, PACKW|BITMAP, fwdi, nexthit);
 	pllabel(p, PACKW, "Go:");
 	plentry(p, PACKN|FILLX, 0, "", entryhit);
+	p = plgroup(root, PACKN|FILLX);
+	urlp = pllabel(p, PACKN|FILLX, "");
+	plplacelabel(urlp, PLACEW);
 	p = plgroup(root, PACKN|EXPAND);
 	ybar = plscrollbar(p, PACKW|USERFL);
 	xbar = plscrollbar(p, IGNORE);
 	textp = pltextview(p, PACKE|EXPAND, ZP, nil, nil);
 	plscroll(textp, xbar, ybar);
-	statusp = pllabel(root, PACKN|FILLX, url);
-	plplacelabel(statusp, PLACEW);
 }
 
 void
@@ -488,7 +608,7 @@ main(int argc, char *argv[])
 		url = argv[1];
 	else
 		url = "gopher.floodgap.com";
-
+	quotefmtinstall();
 	if(initdraw(nil, nil, "gopher")<0)
 		sysfatal("initdraw: %r");
 	einit(Emouse|Ekeyboard);
