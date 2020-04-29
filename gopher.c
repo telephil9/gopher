@@ -139,8 +139,8 @@ Gmenu*
 rendertext(Link *l, Biobuf *bp)
 {
 	Gmenu *m;
-	char *s;
-	int n;
+	char c, buf[255];
+	int n, i;
 
 	m = malloc(sizeof *m);
 	if(m==nil)
@@ -148,20 +148,23 @@ rendertext(Link *l, Biobuf *bp)
 	m->link = clonelink(l);
 	m->text = nil;
 	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
+	n = 0;
 	for(;;){
-		s = Brdstr(bp, '\n', 0);
-		if(s==nil || s[0]=='.')
+		c = Bgetc(bp);
+		if(c<0 || c=='.')
 			break;
-		n = Blinelen(bp);
-		s[n-1] = 0;
-		if(s[n-2]=='\r')
-			s[n-2] = 0;
-		if(s[0]=='\t'){
-			plrtstr(&m->text, 1000000, 8, 0, font, strdup("    "), 0, 0);
-			plrtstr(&m->text, 4, 0, 0, font, strdup(s+1), 0, 0);
-		}else
-			plrtstr(&m->text, 1000000, 8, 0, font, strdup(s), 0, 0);
-		free(s);
+		else if(c=='\r' || c=='\n'){
+			if(c=='\r' && Bgetc(bp)!='\n')
+				Bungetc(bp);
+			buf[n] = 0;
+			plrtstr(&m->text, 1000000, 8, 0, font, strdup(buf), 0, 0);
+			n = 0;
+		}else if(c=='\t'){
+			for(i=0; i<4; i++)
+				buf[n++] = ' ';
+		}else{
+			buf[n++] = c;
+		}
 	}
 	return m;
 }
