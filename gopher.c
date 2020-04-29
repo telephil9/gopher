@@ -17,6 +17,7 @@ Image *fwdi;
 Panel *root;
 Panel *backp;
 Panel *fwdp;
+Panel *entryp;
 Panel *urlp;
 Panel *textp;
 Panel *statusp;
@@ -509,9 +510,28 @@ void
 entryhit(Panel *p, char *t)
 {
 	USED(p);
-	if(strlen(t)<=0)
+	switch(strlen(t)){
+	case 0:
 		return;
-	visitaddr(t);
+	case 1:
+		switch(*t){
+		case 'b':
+			backhit(backp, 1);
+			break;
+		case 'n':
+			nexthit(fwdp, 1);
+			break;
+		case 'q':
+			exits(nil);
+			break;
+		default:
+			message("unknown command %s", t);
+			break;
+		}
+		break;
+	default:
+		visitaddr(t);
+	}
 	plinitentry(p, PACKN|FILLX, 0, "", entryhit);
 	pldraw(p, screen);
 }
@@ -528,7 +548,7 @@ mkpanels(void)
 	plbutton(p, PACKW|BITMAP, backi, backhit);
 	plbutton(p, PACKW|BITMAP, fwdi, nexthit);
 	pllabel(p, PACKW, "Go:");
-	plentry(p, PACKN|FILLX, 0, "", entryhit);
+	entryp = plentry(p, PACKN|FILLX, 0, "", entryhit);
 	p = plgroup(root, PACKN|FILLX);
 	urlp = pllabel(p, PACKN|FILLX, "");
 	plplacelabel(urlp, PLACEW);
@@ -537,6 +557,7 @@ mkpanels(void)
 	xbar = plscrollbar(p, IGNORE);
 	textp = pltextview(p, PACKE|EXPAND, ZP, nil, nil);
 	plscroll(textp, xbar, ybar);
+	plgrabkb(entryp);
 }
 
 void
@@ -622,6 +643,7 @@ main(int argc, char *argv[])
 		case Ekeyboard:
 			switch(e.kbdc){
 			default:
+				plgrabkb(entryp);
 				plkeyboard(e.kbdc);
 				break;
 			case Khome:
