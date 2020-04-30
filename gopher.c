@@ -139,8 +139,8 @@ Gmenu*
 rendertext(Link *l, Biobuf *bp)
 {
 	Gmenu *m;
-	char c, buf[255];
-	int n, i;
+	char buf[255];
+	int c, n, i;
 
 	m = malloc(sizeof *m);
 	if(m==nil)
