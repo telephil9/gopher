@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <String.h>
 #include <draw.h>
 #include <event.h>
 #include <keyboard.h>
@@ -139,8 +140,8 @@ Gmenu*
 rendertext(Link *l, Biobuf *bp)
 {
 	Gmenu *m;
-	char buf[255];
-	int c, n, i;
+	String *buf;
+	int c, n;
 
 	m = malloc(sizeof *m);
 	if(m==nil)
@@ -149,6 +150,7 @@ rendertext(Link *l, Biobuf *bp)
 	m->text = nil;
 	plrtstr(&m->text, 1000000, 0, 0, font, strdup(" "), 0, 0);
 	n = 0;
+	buf = s_new();
 	for(;;){
 		c = Bgetc(bp);
 		if(c<0)
@@ -156,18 +158,21 @@ rendertext(Link *l, Biobuf *bp)
 		else if(c=='\r' || c=='\n'){
 			if(c=='\r' && Bgetc(bp)!='\n')
 				Bungetc(bp);
-			buf[n] = 0;
-			if(n==1 && buf[0]=='.')
+			if(n==1 && s_to_c(buf)[0]=='.')
 				break;
-			plrtstr(&m->text, 1000000, 8, 0, font, strdup(buf), 0, 0);
+			s_terminate(buf);
+			plrtstr(&m->text, 1000000, 8, 0, font, strdup(s_to_c(buf)), 0, 0);
+			s_reset(buf);
 			n = 0;
 		}else if(c=='\t'){
-			for(i=0; i<4; i++)
-				buf[n++] = ' ';
+			n += 4;
+			s_append(buf, "    ");
 		}else{
-			buf[n++] = c;
+			n++;
+			s_putc(buf, c);
 		}
 	}
+	s_free(buf);
 	return m;
 }
 
