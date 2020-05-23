@@ -15,9 +15,11 @@ void message(char *s, ...);
 
 Image *backi;
 Image *fwdi;
+Image *reloadi;
 Panel *root;
 Panel *backp;
 Panel *fwdp;
+Panel *reloadp;
 Panel *entryp;
 Panel *urlp;
 Panel *textp;
@@ -302,7 +304,7 @@ freehist(Hist *h)
 }
 
 void
-visit(Link *l)
+visit(Link *l, int sethist)
 {
 	Gmenu *m;
 	Hist *h;
@@ -313,6 +315,8 @@ visit(Link *l)
 	if(m==nil)
 		return;
 	show(m);
+	if(!sethist)
+		return;
 	h = malloc(sizeof *h);
 	if(h == nil)
 		sysfatal("malloc: %r");
@@ -329,7 +333,7 @@ visit(Link *l)
 void
 visitaddr(char *addr)
 {
-	visit(mklink(netmkaddr(addr, "tcp", "70"), "", Tmenu));
+	visit(mklink(netmkaddr(addr, "tcp", "70"), "", Tmenu), 1);
 }
 
 void
@@ -457,7 +461,7 @@ texthit(Panel *p, int b, Rtext *t)
 	switch(l->type){
 	case Tmenu:
 	case Ttext:
-		visit(l);
+		visit(l, 1);
 		break;
 	case Thtml:
 		plumburl(l->addr);
@@ -470,7 +474,7 @@ texthit(Panel *p, int b, Rtext *t)
 	case Tsearch:
 		if(eenter("Search:", buf, sizeof buf, mouse)>0){
 			s = smprint("%s\t%s", l->sel, buf);
-			visit(mklink(l->addr, s, Tmenu));
+			visit(mklink(l->addr, s, Tmenu), 1);
 			free(s);
 		}
 		break;
@@ -517,6 +521,15 @@ nexthit(Panel *p, int b)
 }
 
 void
+reloadhit(Panel *p, int b)
+{
+	USED(p);
+	if(b!=1)
+		return;
+	visit(hist->m->link, 0);
+}
+
+void
 entryhit(Panel *p, char *t)
 {
 	USED(p);
@@ -557,6 +570,7 @@ mkpanels(void)
 	plplacelabel(statusp, PLACEW);
 	plbutton(p, PACKW|BITMAP|NOBORDER, backi, backhit);
 	plbutton(p, PACKW|BITMAP|NOBORDER, fwdi, nexthit);
+	plbutton(p, PACKW|BITMAP|NOBORDER, reloadi, reloadhit);
 	pllabel(p, PACKW, "Go:");
 	entryp = plentry(p, PACKN|FILLX, 0, "", entryhit);
 	p = plgroup(root, PACKN|FILLX);
@@ -601,6 +615,7 @@ loadicons(void)
 	
 	backi = loadicon(r, ibackdata, sizeof ibackdata);
 	fwdi  = loadicon(r, ifwddata, sizeof ifwddata);
+	reloadi = loadicon(r, ireloaddata, sizeof ireloaddata);
 }
 
 void scrolltext(int dy, int whence)
