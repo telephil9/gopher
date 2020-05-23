@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <String.h>
+#include <regexp.h>
 #include <draw.h>
 #include <event.h>
 #include <keyboard.h>
@@ -24,10 +25,22 @@ Panel *entryp;
 Panel *urlp;
 Panel *textp;
 Panel *statusp;
-Panel *urlp;
+Panel *popup;
 char *url;
 Mouse *mouse;
 Hist *hist = nil;
+
+enum
+{
+	Msearch,
+	Mexit,
+};
+
+char *menu3[] = {
+	"search",
+	"exit",
+	0
+};
 
 Link*
 mklink(char *addr, char *sel, int type)
@@ -430,6 +443,56 @@ save(Link *l, char *name){
 	close(ofd);
 }
 
+void
+search(void)
+{
+	static char last[256];
+	char buf[256];
+	Reprog *re;
+	Rtext *tp;
+	int yoff;
+
+	for(;;){
+		if(hist == nil || hist->m == nil || hist->m->text == nil)
+			return;
+		strncpy(buf, last, sizeof(buf)-1);
+		if(eenter("Search for", buf, sizeof(buf), mouse) <= 0)
+			return;
+		strncpy(last, buf, sizeof(buf)-1);
+		re = regcompnl(buf);
+		if(re == nil){
+			message("%r");
+			continue;
+		}
+		for(tp=hist->m->text;tp;tp=tp->next)
+			if(tp->flags & PL_SEL)
+				break;
+		if(tp == nil)
+			tp = hist->m->text;
+		else {
+			tp->flags &= ~PL_SEL;
+			tp = tp->next;
+		}
+		while(tp != nil){
+			tp->flags &= ~PL_SEL;
+			if(tp->text && *tp->text)
+			if(regexec(re, tp->text, nil, 0)){
+				tp->flags |= PL_SEL;
+				plsetpostextview(textp, tp->topy);
+				break;
+			}
+			tp = tp->next;
+		}
+		free(re);
+		yoff = plgetpostextview(textp);
+		plinittextview(textp, PACKE|EXPAND, ZP, hist->m->text, texthit);
+		plsetpostextview(textp, yoff);
+		pldraw(textp, screen);
+	}
+
+}
+
+
 char*
 linktofile(Link *l){
 	char *n, *s;
@@ -530,6 +593,21 @@ reloadhit(Panel *p, int b)
 }
 
 void
+menuhit(int button, int item)
+{
+	USED(button);
+
+	switch(item){
+	case Msearch:
+		search();
+		break;
+	case Mexit:
+		exits(nil);
+		break;
+	}
+}
+
+void
 entryhit(Panel *p, char *t)
 {
 	USED(p);
@@ -555,32 +633,33 @@ entryhit(Panel *p, char *t)
 	default:
 		visitaddr(t);
 	}
-	plinitentry(p, PACKN|FILLX, 0, "", entryhit);
-	pldraw(p, screen);
+	plinitentry(entryp, PACKN|FILLX, 0, "", entryhit);
+	pldraw(root, screen);
 }
 
 void
 mkpanels(void)
 {
-	Panel *p, *ybar, *xbar;
+	Panel *p, *ybar, *xbar, *m;
 
-	root = plgroup(0, EXPAND);
-	p = plgroup(root, PACKN|FILLX);
-	statusp = pllabel(p, PACKN|FILLX, "gopher!");
-	plplacelabel(statusp, PLACEW);
-	plbutton(p, PACKW|BITMAP|NOBORDER, backi, backhit);
-	plbutton(p, PACKW|BITMAP|NOBORDER, fwdi, nexthit);
-	plbutton(p, PACKW|BITMAP|NOBORDER, reloadi, reloadhit);
-	pllabel(p, PACKW, "Go:");
-	entryp = plentry(p, PACKN|FILLX, 0, "", entryhit);
-	p = plgroup(root, PACKN|FILLX);
-	urlp = pllabel(p, PACKN|FILLX, "");
-	plplacelabel(urlp, PLACEW);
-	p = plgroup(root, PACKN|EXPAND);
-	ybar = plscrollbar(p, PACKW|USERFL);
-	xbar = plscrollbar(p, IGNORE);
-	textp = pltextview(p, PACKE|EXPAND, ZP, nil, nil);
-	plscroll(textp, xbar, ybar);
+	m = plmenu(0, 0, menu3, PACKN|FILLX, menuhit);
+	root = plpopup(0, EXPAND, 0, 0, m);
+	  p = plgroup(root, PACKN|FILLX);
+	    statusp = pllabel(p, PACKN|FILLX, "gopher!");
+	    plplacelabel(statusp, PLACEW);
+	    plbutton(p, PACKW|BITMAP|NOBORDER, backi, backhit);
+	    plbutton(p, PACKW|BITMAP|NOBORDER, fwdi, nexthit);
+	    plbutton(p, PACKW|BITMAP|NOBORDER, reloadi, reloadhit);
+	    pllabel(p, PACKW, "Go:");
+	    entryp = plentry(p, PACKN|FILLX, 0, "", entryhit);
+	  p = plgroup(root, PACKN|FILLX);
+	    urlp = pllabel(p, PACKN|FILLX, "");
+	    plplacelabel(urlp, PLACEW);
+	  p = plgroup(root, PACKN|EXPAND);
+	    ybar = plscrollbar(p, PACKW|USERFL);
+	    xbar = plscrollbar(p, IGNORE);
+	    textp = pltextview(p, PACKE|EXPAND, ZP, nil, nil);
+	    plscroll(textp, xbar, ybar);
 	plgrabkb(entryp);
 }
 
@@ -706,7 +785,7 @@ main(int argc, char *argv[])
 			plmouse(root, mouse);
 			/* BUG: there is a redraw issue when scrolling
 			   This fixes the issue albeit not properly */
-			pldraw(textp, screen);
+			//pldraw(textp, screen);
 			break;
 		}
 	}
