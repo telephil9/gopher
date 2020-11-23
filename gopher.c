@@ -242,6 +242,37 @@ message(char *s, ...)
 	flushimage(display, 1);
 }
 
+Link*
+urltolink(char *url)
+{
+	char *a, *sel, *hostport, *p;
+	int type;
+	Link *l;
+
+	a = strdup(url);
+	hostport = a;
+	if(strncmp(a, "gopher://", 9) == 0)
+		hostport += 9;
+	p = strchr(hostport, '/');
+	if(p){
+		*p++ = 0;
+		type = *p ? seltype(*p++) : Tmenu;
+		sel = *p ? p : "";
+	}else{
+		type = Tmenu;
+		sel = "";
+	}
+	p = strchr(hostport, ':');
+	if(p){
+		*p++ = 0;
+		l = mklink(netmkaddr(hostport, "tcp", p), sel, type);
+	}else{
+		l = mklink(netmkaddr(hostport, "tcp", "70"), sel, type);
+	}
+	free(a);
+	return l;
+}
+
 char*
 linktourl(Link *l)
 {
@@ -740,7 +771,7 @@ main(int argc, char *argv[])
 	plinit(screen->depth);
 	loadicons();
 	mkpanels();
-	visitaddr(url);
+	visit(urltolink(url), 1);
 	eresized(0);
 	for(;;){
 		switch(event(&e)){
