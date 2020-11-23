@@ -375,12 +375,6 @@ visit(Link *l, int sethist)
 }
 
 void
-visitaddr(char *addr)
-{
-	visit(mklink(netmkaddr(addr, "tcp", "70"), "", Tmenu), 1);
-}
-
-void
 plumburl(char *u)
 {
 	int fd;
@@ -662,7 +656,7 @@ entryhit(Panel *p, char *t)
 		}
 		break;
 	default:
-		visitaddr(t);
+		visit(urltolink(t), 1);
 	}
 	plinitentry(entryp, PACKN|FILLX, 0, "", entryhit);
 	pldraw(root, screen);
