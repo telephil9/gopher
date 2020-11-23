@@ -251,11 +251,11 @@ linktourl(Link *l)
 	a = strdup(l->addr);
 	n = getfields(a, f, 3, 0, "!");
 	if(n != 3)
-		s = smprint("Url: gopher://%s%s", l->addr, l->sel);
+		s = smprint("Url: gopher://%s/%d%s", l->addr, l->type, l->sel);
 	else if(atoi(f[2])!=70)
-		s = smprint("Url: gopher://%s:%s%s", f[1], f[2], l->sel);
+		s = smprint("Url: gopher://%s:%s/%d%s", f[1], f[2], l->type, l->sel);
 	else
-		s = smprint("Url: gopher://%s%s", f[1], l->sel);
+		s = smprint("Url: gopher://%s/%d%s", f[1], l->type, l->sel);
 	free(a);	
 	return s;	
 }
