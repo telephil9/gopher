@@ -757,9 +757,11 @@ void scrolltext(int dy, int whence)
 void
 main(int argc, char *argv[])
 {
+	enum { Eplumb = 128 };
 	Event e;
 	Link *l;
 	char *url;
+	Plumbmsg *pm;
 
 	if(argc == 2)
 		url = argv[1];
@@ -778,8 +780,18 @@ main(int argc, char *argv[])
 	else
 		visit(l, 1);
 	eresized(0);
+	eplumb(Eplumb, "gopher");
 	for(;;){
 		switch(event(&e)){
+		case Eplumb:
+			pm = e.v;
+			if(pm->ndata > 0){
+				l = urltolink(pm->data);
+				if(l!=nil)
+					visit(l, 1);
+			}
+			plumbfree(pm);
+			break;
 		case Ekeyboard:
 			switch(e.kbdc){
 			default:
