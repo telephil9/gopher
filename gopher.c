@@ -242,6 +242,37 @@ message(char *s, ...)
 	flushimage(display, 1);
 }
 
+Link*
+urltolink(char *url)
+{
+	char *a, *sel, *hostport, *p;
+	int type;
+	Link *l;
+
+	a = strdup(url);
+	hostport = a;
+	if(strncmp(a, "gopher://", 9) == 0)
+		hostport += 9;
+	p = strchr(hostport, '/');
+	if(p){
+		*p++ = 0;
+		type = *p ? seltype(*p++) : Tmenu;
+		sel = *p ? p : "";
+	}else{
+		type = Tmenu;
+		sel = "";
+	}
+	p = strchr(hostport, ':');
+	if(p){
+		*p++ = 0;
+		l = mklink(netmkaddr(hostport, "tcp", p), sel, type);
+	}else{
+		l = mklink(netmkaddr(hostport, "tcp", "70"), sel, type);
+	}
+	free(a);
+	return l;
+}
+
 char*
 linktourl(Link *l)
 {
@@ -251,11 +282,11 @@ linktourl(Link *l)
 	a = strdup(l->addr);
 	n = getfields(a, f, 3, 0, "!");
 	if(n != 3)
-		s = smprint("Url: gopher://%s%s", l->addr, l->sel);
+		s = smprint("Url: gopher://%s/%d%s", l->addr, l->type, l->sel);
 	else if(atoi(f[2])!=70)
-		s = smprint("Url: gopher://%s:%s%s", f[1], f[2], l->sel);
+		s = smprint("Url: gopher://%s:%s/%d%s", f[1], f[2], l->type, l->sel);
 	else
-		s = smprint("Url: gopher://%s%s", f[1], l->sel);
+		s = smprint("Url: gopher://%s/%d%s", f[1], l->type, l->sel);
 	free(a);	
 	return s;	
 }
@@ -341,12 +372,6 @@ visit(Link *l, int sethist)
 	h->n = nil;
 	h->m = m;
 	hist = h;
-}
-
-void
-visitaddr(char *addr)
-{
-	visit(mklink(netmkaddr(addr, "tcp", "70"), "", Tmenu), 1);
 }
 
 void
@@ -610,6 +635,8 @@ menuhit(int button, int item)
 void
 entryhit(Panel *p, char *t)
 {
+	Link *l;
+
 	USED(p);
 	switch(strlen(t)){
 	case 0:
@@ -631,7 +658,11 @@ entryhit(Panel *p, char *t)
 		}
 		break;
 	default:
-		visitaddr(t);
+		l = urltolink(t);
+		if(l==nil)
+			message("invalid url %s", t);
+		else
+			visit(l, 1);
 	}
 	plinitentry(entryp, PACKN|FILLX, 0, "", entryhit);
 	pldraw(root, screen);
@@ -727,6 +758,7 @@ void
 main(int argc, char *argv[])
 {
 	Event e;
+	Link *l;
 	char *url;
 
 	if(argc == 2)
@@ -740,7 +772,11 @@ main(int argc, char *argv[])
 	plinit(screen->depth);
 	loadicons();
 	mkpanels();
-	visitaddr(url);
+	l = urltolink(url);
+	if(l==nil)
+		message("invalid url %s", url);
+	else
+		visit(l, 1);
 	eresized(0);
 	for(;;){
 		switch(event(&e)){
