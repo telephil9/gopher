@@ -29,15 +29,20 @@ Panel *popup;
 char *url;
 Mouse *mouse;
 Hist *hist = nil;
+char *bdir;
 
 enum
 {
 	Msearch,
+	Maddbookmark,
+	Mbookmarks,
 	Mexit,
 };
 
 char *menu3[] = {
 	"search",
+	"add bookmark",
+	"bookmarks",
 	"exit",
 	0
 };
@@ -59,6 +64,8 @@ mklink(char *addr, char *sel, int type)
 Link*
 clonelink(Link *l)
 {
+	if(l==nil)
+		return nil;
 	return mklink(l->addr, l->sel, l->type);
 }
 
@@ -94,6 +101,13 @@ seltype(char c)
 	}
 	return t;
 }
+
+static char Typechar[] = {
+	'0', '1', '2', '3', '4', '5',
+	'6', '7', '8', '9', '+', 'g',
+	'I', 'T', 'd', 'h', 'i', 's',
+	'.',
+};
 
 static char *Typestr[] = {
 	"FILE", "DIR", "NS", "ERR", "HEX",
@@ -517,6 +531,62 @@ search(void)
 
 }
 
+void
+addbookmark(void)
+{
+	Link *l;
+	char buf[255] = {0}, *f, *u[3];
+	int n, fd;
+
+	if(hist==nil)
+		return;
+	l = hist->m->link;
+	n = eenter("Name:", buf, sizeof buf, mouse);
+	if(n<=0)
+		return;
+	f = smprint("%s/bookmarks", bdir);
+	fd = open(f, OWRITE);
+	if(fd<0){
+		fd = create(f, OWRITE, 0644);
+		if(fd<0){
+			message("cannot open %s", f);
+			free(f);
+			return;
+		}
+		fprint(fd, "iGOPHER Bookmarks\n");
+		fprint(fd, "i=================\n");
+		fprint(fd, "i \n");
+	}
+	free(f);
+	f = strdup(l->addr);
+	getfields(f, u, 3, 0, "!");
+	seek(fd, 0, 2);
+	fprint(fd, "%c%s\t%s\t%s\t%s\n", Typechar[l->type], buf, l->sel, u[1], u[2]);
+	fprint(fd, "i%s\n", linktourl(l));
+	free(f);
+	close(fd);
+	message("added bookmark %s", buf);
+}
+
+void
+showbookmarks(void)
+{
+	char *f;
+	Biobuf *bp;
+	Gmenu *m;
+
+	f = smprint("%s/bookmarks", bdir);
+	bp = Bopen(f, OREAD);
+	if(bp==nil){
+		message("cannot open %s", f);
+		free(f);
+		return;
+	}
+	m = rendermenu(nil, bp);
+	show(m);
+	free(f);
+	Bterm(bp);
+}
 
 char*
 linktofile(Link *l){
@@ -625,6 +695,12 @@ menuhit(int button, int item)
 	switch(item){
 	case Msearch:
 		search();
+		break;
+	case Maddbookmark:
+		addbookmark();
+		break;
+	case Mbookmarks:
+		showbookmarks();
 		break;
 	case Mexit:
 		exits(nil);
@@ -753,6 +829,27 @@ void scrolltext(int dy, int whence)
 	   This fixes the issue albeit not properly */
 	pldraw(textp, screen);
 }
+
+void
+ensurebdir(void)
+{
+	char *home, *tmp;
+	int fd;
+
+	home = getenv("home");
+	if(home){
+		tmp = smprint("%s/lib", home);
+		fd = create(tmp, OREAD, DMDIR|0777);
+		if(fd>0)
+			close(fd);
+		free(tmp);
+		bdir = smprint("%s/lib/gopher", home);
+		fd = create(bdir, OREAD, DMDIR|0777);
+		if(fd>0)
+			close(fd);
+	}else
+		bdir = strdup("/tmp");
+}
 	
 void
 main(int argc, char *argv[])
@@ -768,6 +865,7 @@ main(int argc, char *argv[])
 	else
 		url = "gopher.floodgap.com";
 	quotefmtinstall();
+	ensurebdir();
 	if(initdraw(nil, nil, "gopher")<0)
 		sysfatal("initdraw: %r");
 	einit(Emouse|Ekeyboard);
