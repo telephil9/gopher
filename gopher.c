@@ -74,7 +74,7 @@ seltype(char c)
 {
 	int t;
 
-	t = Tinfo;
+	t = -c;
 	switch(c){
 	case '0': t = Ttext; break;
 	case '1': t = Tmenu; break;
@@ -95,9 +95,7 @@ seltype(char c)
 	case 'i': t = Tinfo; break;
 	case 's': t = Tsound; break;
 	case '.': t = Teof; break;
-	default:
-		fprint(2, "unknown seltype '%c'\n", c);
-		break;
+	default: break;
 	}
 	return t;
 }
@@ -119,6 +117,8 @@ static char *Typestr[] = {
 char*
 seltypestr(int type)
 {
+	if(type<0)
+		return smprint("UNKN:%c", (char) -type);
 	return smprint("%6s", Typestr[type]);
 };
 
@@ -156,7 +156,7 @@ rendermenu(Link *l, Biobuf *bp)
 		}
 		t = strdup(f[0]);
 		plrtstr(&m->text, 1000000, 8, 0, font, seltypestr(type), PL_HEAD, 0);
-		if(type == Tinfo)
+		if(type == Tinfo || type < 0)
 			plrtstr(&m->text, 8, 0, 0, font, t, 0, 0);
 		else
 			plrtstr(&m->text, 8, 0, 0, font, t, PL_HOT, n);
@@ -271,6 +271,8 @@ urltolink(char *url)
 	if(p){
 		*p++ = 0;
 		type = *p ? seltype(*p++) : Tmenu;
+		if(type < 0)
+			return nil;
 		sel = *p ? p : "";
 	}else{
 		type = Tmenu;
