@@ -129,7 +129,7 @@ rendermenu(Link *l, Biobuf *bp)
 	char *s, *f[5], *t;
 	Gmenu *m;
 	Link *n;
-	int type;
+	int type, c;
 
 	m = malloc(sizeof *m);
 	if(m==nil)
@@ -143,7 +143,7 @@ rendermenu(Link *l, Biobuf *bp)
 		if(s==nil || s[0]=='.')
 			break;
 		type = seltype(s[0]);
-		getfields(s+1, f, 5, 0, "\t\r\n");
+		c = getfields(s+1, f, 5, 0, "\t\r\n");
 		switch(type){
 		case Tinfo:
 			break;
@@ -151,6 +151,10 @@ rendermenu(Link *l, Biobuf *bp)
 			n = mklink(strdup(f[1]+4), nil, Thtml); /* +4 skip URL: */
 			break;
 		default:
+			if(type < 0 && c < 3){
+				fprint(2, "skipping invalid menu line '%s'\n", s);
+				continue;
+			}
 			n = mklink(netmkaddr(f[2], "tcp", f[3]), strdup(f[1]), type);
 			break;
 		}
