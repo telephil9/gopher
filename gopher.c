@@ -937,7 +937,8 @@ main(int argc, char *argv[])
 			plmouse(root, mouse);
 			/* BUG: there is a redraw issue when scrolling
 			   This fixes the issue albeit not properly */
-			//pldraw(textp, screen);
+			if(mouse->buttons != 4)
+			 pldraw(textp, screen);
 			break;
 		}
 	}
